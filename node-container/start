@@ -1,0 +1,50 @@
+sudo docker rm -f  cordova_android_cont
+
+PROJECT_HOME=`cd .. && pwd`
+ANGULAR_APP_ROOT=$PROJECT_HOME/angular-project
+ANDROID_PROJECT_ROOT=$PROJECT_HOME/android-project
+NODE_ROOT=$PROJECT_HOME/node-container
+
+
+APP_NAME="TestApp"
+APP_BUNDLE="com.example.testapp"
+
+
+SSH_OPTS="-o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o PubkeyAuthentication=yes -i $NODE_ROOT/sshkey.pem "
+
+
+CONT_CID=`sudo docker run  --privileged -d  \
+			-p 8000:8000  \
+			-p 8001:8001  \
+			-p 35729:35729 \
+			-p 8037:8037 \
+			--name  cordova_android_cont   \
+			-v $ANDROID_PROJECT_ROOT:/android-project  \
+			-v $ANGULAR_APP_ROOT:/angular-project  \
+			-v $PROJECT_HOME/log:/var/log/supervisor  \
+			-v /dev/bus/usb:/dev/bus/usb \
+			lalala/cordova_android:dev`
+
+CONT_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' $CONT_CID)
+
+
+echo "container ip: $CONT_IP"
+
+
+echo "connecting to container..."
+RET=1
+until [ ${RET} -eq 0 ]; do
+    ssh  $SSH_OPTS   root@$CONT_IP "supervisorctl status"
+    RET=$?
+    sleep 1
+done
+echo "container connected"
+
+if [ "$(ls -A $ANDROID_PROJECT_ROOT/$APP_NAME)"   ]; then
+	echo "cordova directory exists"
+	ssh $SSH_OPTS   root@$CONT_IP  'supervisorctl start gulp-server'
+else
+	echo "cordova app init"
+	ssh $SSH_OPTS   root@$CONT_IP 'source /etc/environment; /bin/bash /root/bootstrap.sh '"$APP_NAME $APP_BUNDLE"
+fi
+

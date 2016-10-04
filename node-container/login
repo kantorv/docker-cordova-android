@@ -1,0 +1,7 @@
+#!/bin/bash
+SSH_OPTS="-o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o PubkeyAuthentication=yes "
+CONT_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' cordova_android_cont)
+ssh  $SSH_OPTS -i sshkey.pem  root@$CONT_IP
+
+
+
